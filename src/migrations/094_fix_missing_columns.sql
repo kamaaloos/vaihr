@@ -256,3 +256,4 @@ RAISE NOTICE 'Migration completed successfully - fixed missing columns and RLS p
 
 
 
+
