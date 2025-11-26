@@ -1,0 +1,7 @@
+-- Add missing profile columns to users table
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS avatar_url TEXT,
+ADD COLUMN IF NOT EXISTS driver_type TEXT,
+ADD COLUMN IF NOT EXISTS rating DECIMAL(3,2),
+ADD COLUMN IF NOT EXISTS total_jobs INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS completed_jobs INTEGER DEFAULT 0; 

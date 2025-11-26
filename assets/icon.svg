@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" fill="#FFF"/>
+  
+  <!-- Steering Wheel -->
+  <circle cx="512" cy="512" r="200" fill="none" stroke="blue" stroke-width="40"/>
+  <circle cx="512" cy="512" r="80" fill="blue"/>
+  
+  <!-- Spokes -->
+  <rect x="492" y="312" width="40" height="120" fill="blue"/>
+  <rect x="492" y="592" width="40" height="120" fill="blue"/>
+  <rect x="312" y="492" width="120" height="40" fill="blue"/>
+  <rect x="592" y="492" width="120" height="40" fill="blue"/>
+  
+  <!-- Text -->
+  <text x="512" y="800" 
+        font-family="Arial Black" 
+        font-size="100" 
+        fill="blue" 
+        text-anchor="middle">
+    VIAHTORATTI
+  </text>
+</svg> 
