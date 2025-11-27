@@ -46,7 +46,27 @@ export const useSupabaseAuth = () => {
     };
 
     const resetPassword = async (email: string) => {
-        const { error } = await supabase.auth.resetPasswordForEmail(email);
+        // Use Supabase callback URL - the app will intercept it via deep linking
+        const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+        let redirectUrl = process.env.EXPO_PUBLIC_PASSWORD_RESET_URL;
+        
+        if (!redirectUrl && supabaseUrl) {
+            try {
+                const url = new URL(supabaseUrl);
+                redirectUrl = `${url.protocol}//${url.host}/auth/v1/callback`;
+            } catch (e) {
+                const baseUrl = supabaseUrl.replace('/rest/v1', '').replace('/rest/v1/', '');
+                redirectUrl = `${baseUrl}/auth/v1/callback`;
+            }
+        }
+        
+        if (!redirectUrl) {
+            redirectUrl = 'https://xwaigporrtenhmlihbfc.supabase.co/auth/v1/callback';
+        }
+        
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: redirectUrl,
+        });
         if (error) throw error;
     };
 

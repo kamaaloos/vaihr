@@ -56,6 +56,9 @@ export type RootStackParamList = {
     Welcome: undefined;
     Login: undefined;
     Register: undefined;
+    ResetPassword: {
+        email?: string;
+    };
     DriverHome: { filter?: string } | undefined;
     AdminHome: undefined;
     JobDetails: { jobId: string };

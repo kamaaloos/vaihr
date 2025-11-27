@@ -117,14 +117,41 @@ export default function LoginScreen({ navigation }: Props) {
 
     try {
       setResetLoading(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      // Use Supabase callback URL - the app will intercept it via deep linking
+      // Note: Supabase requires HTTPS URLs, not custom schemes
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      let redirectUrl = process.env.EXPO_PUBLIC_PASSWORD_RESET_URL;
+      
+      if (!redirectUrl && supabaseUrl) {
+        try {
+          // Parse Supabase URL and construct auth callback URL
+          const url = new URL(supabaseUrl);
+          redirectUrl = `${url.protocol}//${url.host}/auth/v1/callback`;
+        } catch (e) {
+          // Fallback if URL parsing fails
+          const baseUrl = supabaseUrl.replace('/rest/v1', '').replace('/rest/v1/', '');
+          redirectUrl = `${baseUrl}/auth/v1/callback`;
+        }
+      }
+      
+      // Fallback to callback URL format
+      if (!redirectUrl) {
+        redirectUrl = 'https://xwaigporrtenhmlihbfc.supabase.co/auth/v1/callback';
+      }
+      
+      console.log('Password reset redirect URL:', redirectUrl);
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl,
+      });
       if (error) throw error;
 
       Toast.show({
         type: 'success',
         text1: 'Success',
-        text2: 'Password reset email has been sent',
+        text2: 'Password reset email has been sent. Click the link in your email to reset your password.',
         position: 'bottom',
+        visibilityTime: 5000,
       });
     } catch (error: any) {
       console.error('Password reset error:', error);

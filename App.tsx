@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { LogBox, Platform, View, ActivityIndicator, Text, Button } from 'react-native';
+import { LogBox, Platform, View, ActivityIndicator, Text, Button, Linking } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Provider as PaperProvider, Button as PaperButton } from 'react-native-paper';
 import { RootStackParamList } from './src/types';
@@ -38,6 +38,7 @@ import AddJobScreen from './src/screens/AddJobScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import UserProfileScreen from './src/screens/UserProfileScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import { StackScreenProps } from '@react-navigation/stack';
 
 
@@ -62,11 +63,13 @@ Notifications.setNotificationHandler({
         hasSound: !!notification.request.content.sound,
         platform,
       });
-      
+
       return {
         shouldShowAlert: true,
         shouldPlaySound: true, // Explicitly enable sound for both iOS and Android
         shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
         ...(Platform.OS === 'android' && {
           priority: Notifications.AndroidNotificationPriority.MAX, // Use MAX for better sound delivery on Android
         }),
@@ -78,6 +81,8 @@ Notifications.setNotificationHandler({
         shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
         ...(Platform.OS === 'android' && {
           priority: Notifications.AndroidNotificationPriority.MAX,
         }),
@@ -101,7 +106,7 @@ async function registerForPushNotificationsAsync() {
     } catch (error) {
       console.log('No existing channel to delete (this is OK)');
     }
-    
+
     // Create new channel with sound enabled
     await Notifications.setNotificationChannelAsync('default', {
       name: 'Default Notifications',
@@ -184,7 +189,7 @@ const ChatScreenWithProvider = (props: ChatScreenProps) => (
 
 function Navigation() {
   const { user, userData, loading } = useAuth();
-  
+
   // Wait for auth to finish loading before making navigation decisions
   // If we have a user but userData is still loading, show loading screen
   if (loading || (user && !userData)) {
@@ -194,22 +199,22 @@ function Navigation() {
       </View>
     );
   }
-  
+
   const isAdmin = userData?.role === 'admin';
-  
+
   // Drivers must complete profile; admins bypass completion
   // Handle both boolean true and string "true" from database
   // Treat null/undefined/false as incomplete
-  const profileCompleted = userData?.profile_completed === true 
+  const profileCompleted = userData?.profile_completed === true
     || userData?.profile_completed === 'true'
     || userData?.profile_completed === 1
     || userData?.profile_completed === '1';
-  
-  const needsProfileCompletion = !!user 
-    && userData 
-    && userData.role !== 'admin' 
+
+  const needsProfileCompletion = !!user
+    && userData
+    && userData.role !== 'admin'
     && !profileCompleted;
-  
+
   console.log('Navigation: Profile completion check:', {
     hasUser: !!user,
     hasUserData: !!userData,
@@ -223,7 +228,7 @@ function Navigation() {
   });
 
   // Determine initial route name based on current state
-  let initialRouteName = 'Welcome';
+  let initialRouteName: keyof RootStackParamList = 'Welcome';
   if (user && userData) {
     if (needsProfileCompletion) {
       initialRouteName = 'CompleteProfile';
@@ -414,6 +419,13 @@ function Navigation() {
               headerTintColor: '#333',
             }}
           />
+          <Stack.Screen
+            name="ResetPassword"
+            component={ResetPasswordScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
         </>
       )}
     </Stack.Navigator>
@@ -438,7 +450,7 @@ function AppContent() {
   // Automatically register for push notifications when user logs in
   useEffect(() => {
     if (!user || !userData) return;
-    
+
     // Only register if user doesn't have a push token
     if (!userData.expo_push_token) {
       console.log('User has no push token, attempting to register...');
@@ -465,6 +477,127 @@ function AppContent() {
 
   // Add presence notifications
   usePresenceNotifications();
+
+  // Handle deep links for password reset
+  useEffect(() => {
+    const handleDeepLink = async (url: string) => {
+      console.log('Deep link received:', url);
+
+      try {
+        // Check if this is a password reset URL (Supabase callback or deep link)
+        // Note: Even if there's an error in query params, tokens might be in hash
+        const isPasswordReset = url.includes('/auth/v1/callback') ||
+          url.includes('type=recovery') ||
+          url.startsWith('vaihtoratti://reset-password');
+
+        if (isPasswordReset) {
+          console.log('Processing password reset URL:', url.substring(0, 100) + '...');
+
+          // Extract tokens from URL hash (Supabase puts tokens in hash fragment)
+          let accessToken: string | null = null;
+          let refreshToken: string | null = null;
+          const hash = url.split('#')[1];
+
+          if (hash) {
+            // Parse hash fragment which contains: access_token=...&refresh_token=...&type=recovery
+            const params = new URLSearchParams(hash);
+            accessToken = params.get('access_token');
+            refreshToken = params.get('refresh_token');
+            const type = params.get('type');
+
+            console.log('Extracted from hash:', {
+              hasAccessToken: !!accessToken,
+              hasRefreshToken: !!refreshToken,
+              type: type
+            });
+          }
+
+          // If no hash, try query params (fallback for deep link format)
+          if (!accessToken || !refreshToken) {
+            try {
+              const urlObj = new URL(url.replace('vaihtoratti://', 'https://'));
+              accessToken = urlObj.searchParams.get('access_token') || accessToken;
+              refreshToken = urlObj.searchParams.get('refresh_token') || refreshToken;
+            } catch (e) {
+              console.log('Could not parse URL for query params:', e);
+            }
+          }
+
+          if (accessToken && refreshToken) {
+            console.log('Password reset tokens found, setting session...');
+
+            // Set the session in Supabase
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+
+            if (error) {
+              console.error('Error setting session:', error);
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to process password reset link. It may have expired.',
+                position: 'bottom',
+              });
+              return;
+            }
+
+            if (data.session && data.user) {
+              console.log('Session set successfully, navigating to reset password screen...');
+              // Extract email from user data
+              const email = data.user.email || '';
+              // Navigate to reset password screen
+              navigationRef.current?.navigate('ResetPassword', { email });
+            }
+          } else {
+            console.log('No tokens found in URL');
+            // If it's a deep link without tokens, navigate to reset screen anyway
+            // User will need to request a new reset link
+            if (url.startsWith('vaihtoratti://reset-password')) {
+              navigationRef.current?.navigate('ResetPassword', {});
+            } else {
+              // Show error if we can't extract tokens
+              Toast.show({
+                type: 'error',
+                text1: 'Invalid Link',
+                text2: 'The password reset link is invalid. Please request a new one.',
+                position: 'bottom',
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error handling deep link:', error);
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to process password reset link',
+          position: 'bottom',
+        });
+      }
+    };
+
+    // Handle initial URL (when app is opened via deep link)
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        console.log('Initial URL detected:', url);
+        handleDeepLink(url);
+      }
+    }).catch(err => {
+      console.error('Error getting initial URL:', err);
+    });
+
+    // Handle URL when app is already open
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      console.log('URL event received:', url);
+      handleDeepLink(url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   return (
     <PaperProvider theme={theme}>
@@ -505,6 +638,7 @@ export default function App() {
             </NavigationContainer>
           </JobsProvider>
         </AuthProvider>
+        {/* @ts-ignore - react-native-toast-message type issue */}
         <Toast />
       </ThemeProvider>
     </SafeAreaProvider>
