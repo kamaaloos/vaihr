@@ -5,6 +5,7 @@ export default {
   ...appJson,
   expo: {
     ...appJson.expo,
+    owner: "mayloos",
     plugins: [
       "expo-asset",
       "expo-video"

@@ -38,6 +38,7 @@ yarn-error.*
 .DS_Store
 
 # Xcode
+ios/
 build/
 *.pbxuser
 !default.pbxuser
@@ -57,6 +58,7 @@ DerivedData
 project.xcworkspace
 
 # Android/IntelliJ
+android/
 build/
 .idea
 .gradle
