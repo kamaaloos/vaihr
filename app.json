@@ -31,9 +31,6 @@
       },
       "package": "com.vaihtoratti.app"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
     "scheme": "vaihtoratti",
     "plugins": [
       [
