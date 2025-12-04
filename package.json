@@ -115,7 +115,6 @@
     "babel-jest": "^29.7.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
-    "jest-expo": "~54.0.13",
     "react-native-gesture-handler": "~2.28.0",
     "ts-node": "^10.9.2",
     "typescript": "~5.9.2"
